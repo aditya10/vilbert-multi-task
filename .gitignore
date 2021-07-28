@@ -34,12 +34,18 @@ MANIFEST
 
 # Datasets and preprocessed files
 data/
+datasets/
 save/
 logs/
 results/
+outs/
 
 # Checkpoints directory
 checkpoints/
+
+# Saved models
+multi_task_model.bin
+pretrained_model.bin
 
 # IPython Notebook
 .ipynb_checkpoints
@@ -47,3 +53,6 @@ checkpoints/
 # virtualenv
 venv/
 ENV/
+
+# Run files
+run*.sh
