@@ -35,6 +35,10 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         features, spatials, image_mask, question, target, input_mask, segment_ids, multiple_choice_ids, co_attention_mask, question_id = (
             batch
         )
+    elif task_cfg[task_id]["use_graph"]:
+        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id, adj1, adj2 = (
+            batch
+        )
     else:
         features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
             batch
@@ -190,6 +194,10 @@ def ForwardModelsTrain(
         features, spatials, image_mask, question, target, input_mask, segment_ids, multiple_choice_ids, co_attention_mask, question_id = (
             batch
         )
+    elif task_cfg[task_id]["use_graph"]:
+        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id, adj1, adj2 = (
+            batch
+        )
     else:
         features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
             batch
@@ -310,16 +318,35 @@ def ForwardModelsTrain(
         )
 
     task_tokens = question.new().resize_(question.size(0), 1).fill_(int(task_id[4:]))
-    vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
-        question,
-        features,
-        spatials,
-        segment_ids,
-        input_mask,
-        image_mask,
-        co_attention_mask,
-        task_tokens,
-    )
+
+    # print(adj1.shape)
+    # print(adj2.shape)
+    # print(question.shape)
+
+    if task_cfg[task_id]["use_graph"]:
+        vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
+            question,
+            features,
+            spatials,
+            segment_ids,
+            input_mask,
+            image_mask,
+            co_attention_mask,
+            task_tokens,
+            adj1=adj1,
+            adj2=adj2,
+        )
+    else:   
+        vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
+            question,
+            features,
+            spatials,
+            segment_ids,
+            input_mask,
+            image_mask,
+            co_attention_mask,
+            task_tokens,
+        )
 
     # for different task, we use different output to calculate the loss.
     if task_cfg[task_id]["type"] == "VL-classifier":
@@ -461,6 +488,9 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
+                use_graph=task_cfg[task]["use_graph"],
+                v_use_graph=task_cfg[task]["v_use_graph"],
+                graph_path=task_cfg[task]["graph_path"]
             )
 
         task_datasets_val[task] = None
@@ -482,6 +512,9 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
+                use_graph=task_cfg[task]["use_graph"],
+                v_use_graph=task_cfg[task]["v_use_graph"],
+                graph_path=task_cfg[task]["graph_path"]
             )
 
         task_num_iters[task] = 0
@@ -593,6 +626,9 @@ def LoadDatasetEval(args, task_cfg, ids):
             padding_index=0,
             max_seq_length=task_cfg[task]["max_seq_length"],
             max_region_num=task_cfg[task]["max_region_num"],
+            use_graph=task_cfg[task]["use_graph"],
+            v_use_graph=task_cfg[task]["v_use_graph"],
+            graph_path=task_cfg[task]["graph_path"]
         )
 
         task_dataloader_val[task] = DataLoader(
@@ -641,10 +677,20 @@ def EvaluatingModel(
         features, spatials, image_mask, question, target, input_mask, segment_ids, multiple_choice_ids, co_attention_mask, question_id = (
             batch
         )
+    elif task_cfg[task_id]["use_graph"]:
+        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id, adj1, adj2 = (
+            batch
+        )
     else:
         features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
             batch
         )
+        # if task_cfg[task_id]["use_graph"]:
+        #     adj1, adj2 = graph_data['t']
+        
+        # if task_cfg[task_id]["v_use_graph"]:
+        #     vadj1, vadj2 = graph_data['v']
+
     batch_size = features.size(0)
 
     if task_cfg[task_id]["process"] in ["dialog"]:
@@ -762,17 +808,32 @@ def EvaluatingModel(
 
     task_tokens = question.new().resize_(question.size(0), 1).fill_(int(task_id[4:]))
 
-    with torch.no_grad():
-        vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
-            question,
-            features,
-            spatials,
-            segment_ids,
-            input_mask,
-            image_mask,
-            co_attention_mask,
-            task_tokens,
-        )
+    if task_cfg[task_id]["use_graph"]:
+        with torch.no_grad():
+            vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
+                question,
+                features,
+                spatials,
+                segment_ids,
+                input_mask,
+                image_mask,
+                co_attention_mask,
+                task_tokens,
+                adj1=adj1,
+                adj2=adj2
+            )
+    else:
+        with torch.no_grad():
+            vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
+                question,
+                features,
+                spatials,
+                segment_ids,
+                input_mask,
+                image_mask,
+                co_attention_mask,
+                task_tokens,
+            )
 
     if task_cfg[task_id]["type"] == "VL-classifier":
         logits = torch.max(vil_prediction, 1)[1].data  # argmax

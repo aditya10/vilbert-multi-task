@@ -158,6 +158,22 @@ def main():
         action="store_true",
         help="whether to use task specific tokens for the multi-task learning.",
     )
+    parser.add_argument(
+        "--use_graph",
+        action="store_true",
+        help="whether to use graph",
+    )
+    parser.add_argument(
+        "--graph_path",
+        default="graph",
+        type=str,
+        help="file name",
+    )
+    parser.add_argument(
+        "--v_use_graph",
+        action="store_true",
+        help="whether to use graph for images",
+    )
 
     args = parser.parse_args()
     with open("vilbert_tasks.yml", "r") as f:
@@ -177,16 +193,19 @@ def main():
     task_names = []
     for i, task_id in enumerate(args.tasks.split("-")):
         task = "TASK" + task_id
+        task_cfg[task]["use_graph"] = args.use_graph
+        task_cfg[task]["graph_path"] = args.graph_path
+        task_cfg[task]["v_use_graph"] = args.v_use_graph
         name = task_cfg[task]["name"]
         task_names.append(name)
-
-    if args.task_specific_tokens:
-        config.task_specific_tokens = True
 
     # timeStamp = '-'.join(task_names) + '_' + args.config_file.split('/')[1].split('.')[0]
     timeStamp = args.from_pretrained.split("/")[-1] + "-" + args.save_name
     savePath = os.path.join(args.output_dir, timeStamp)
     config = BertConfig.from_json_file(args.config_file)
+
+    if args.task_specific_tokens:
+        config.task_specific_tokens = True
 
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device(
@@ -305,7 +324,7 @@ def main():
             sys.stdout.write("%d/%d\r" % (i, len(task_dataloader_val[task_id])))
             sys.stdout.flush()
         # save the result or evaluate the result.
-        ave_score = tbLogger.showLossVal(task_id)
+        ave_score = tbLogger.showLossVal(task_id, split=args.split)
 
         if args.split:
             json_path = os.path.join(savePath, args.split)

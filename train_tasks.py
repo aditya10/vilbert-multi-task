@@ -217,11 +217,28 @@ def main():
         action="store_true",
         help="whether to use task specific tokens for the multi-task learning.",
     )
+    parser.add_argument(
+        "--use_graph",
+        action="store_true",
+        help="whether to use graph",
+    )
+    parser.add_argument(
+        "--graph_path",
+        default="graph",
+        type=str,
+        help="file name",
+    )
+    parser.add_argument(
+        "--v_use_graph",
+        action="store_true",
+        help="whether to use graph for images",
+    )
+    
 
     args = parser.parse_args()
     with open("vilbert_tasks.yml", "r") as f:
         task_cfg = edict(yaml.safe_load(f))
-
+    
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -240,6 +257,9 @@ def main():
     task_lr = []
     for i, task_id in enumerate(args.tasks.split("-")):
         task = "TASK" + task_id
+        task_cfg[task]["use_graph"] = args.use_graph
+        task_cfg[task]["graph_path"] = args.graph_path
+        task_cfg[task]["v_use_graph"] = args.v_use_graph
         name = task_cfg[task]["name"]
         task_names.append(name)
         task_lr.append(task_cfg[task]["lr"])
@@ -664,7 +684,7 @@ def evaluate(
 
     # update the multi-task scheduler.
     task_stop_controller[task_id].step(tbLogger.getValScore(task_id))
-    score = tbLogger.showLossVal(task_id, task_stop_controller)
+    score = tbLogger.showLossVal(task_id, task_stop_controller=task_stop_controller)
     model.train()
 
 

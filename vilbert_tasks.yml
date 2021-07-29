@@ -162,6 +162,7 @@ TASK9:
   val_split: val
   lr: 0.00002
   num_epoch: 20
+  use_graph: False
 TASK10:
   name: refcoco+
   type: V-logit
@@ -176,11 +177,11 @@ TASK10:
   max_seq_length: 20
   max_region_num: 101
   batch_size: 256
-  eval_batch_size: 1024
   train_split: train
   val_split: val
   lr: 0.00002
   num_epoch: 20
+  use_graph: False
 TASK11:
   name: refcocog
   type: V-logit
@@ -200,6 +201,7 @@ TASK11:
   start_iteration: 0
   lr: 0.00002
   num_epoch: 20
+  use_graph: False
 TASK12:
   name: NLVR2
   type: VL-binary-classifier

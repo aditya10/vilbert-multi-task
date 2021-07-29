@@ -75,6 +75,9 @@ class ReferExpressionDataset(Dataset):
         padding_index: int = 0,
         max_seq_length: int = 20,
         max_region_num: int = 60,
+        use_graph: bool = False,
+        v_use_graph: bool = False,
+        graph_path: str = "graph"
     ):
         self.split = split
 
@@ -101,10 +104,26 @@ class ReferExpressionDataset(Dataset):
         self.entries = self._load_annotations(clean_datasets)
 
         self.max_region_num = max_region_num
+        self.use_graph = use_graph
+        self.v_use_graph = v_use_graph
 
         clean_train = "_cleaned" if clean_datasets else ""
 
-        if "roberta" in bert_model:
+        if use_graph:
+            cache_path = os.path.join(
+                dataroot,
+                "cache",
+                task
+                + "_"
+                + split
+                + "_"
+                + str(max_seq_length)
+                + "_"
+                + str(max_region_num)
+                + clean_train
+                + "_"+graph_path+".pkl",
+            )
+        elif "roberta" in bert_model:
             cache_path = os.path.join(
                 dataroot,
                 "cache",
@@ -302,6 +321,34 @@ class ReferExpressionDataset(Dataset):
         input_mask = entry["input_mask"]
         segment_ids = entry["segment_ids"]
 
+        if 'adj1' in entry:
+            adj1 = entry['adj1']
+        else:
+            adj1 = None
+            print("error: ", entry)
+
+        adj2 = entry['adj2']
+        
+        # graph_data = {}
+
+        # print(boxes.shape)
+        # print(target.shape)
+
+        # if self.use_graph:
+        #     adj1 = entry['adj1']
+        #     adj2 = entry['adj2']
+        #     graph_data['t'] = (adj1, adj2)
+
+        # if self.v_use_graph:
+        #     iou_mask = iou(boxes, boxes)
+        #     vadj1 = iou_mask.clone().detach()
+        #     vadj2 = iou_mask.clone().detach()
+        #     vadj1[vadj1 >= 0.5] = 1
+        #     vadj1[vadj1 < 0.5] = 0
+        #     vadj2[vadj2 >= 0.2] = 1
+        #     vadj2[vadj2 < 0.2] = 0
+        #     graph_data['v'] = (vadj1, vadj2)
+
         return (
             features,
             spatials,
@@ -312,6 +359,8 @@ class ReferExpressionDataset(Dataset):
             segment_ids,
             co_attention_mask,
             image_id,
+            adj1,
+            adj2
         )
 
     def __len__(self):

@@ -56,3 +56,4 @@ ENV/
 
 # Run files
 run*.sh
+env.yml
