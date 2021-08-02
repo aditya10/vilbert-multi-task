@@ -168,7 +168,7 @@ class tbLogger(object):
         if self.save_logger:
             self.logger = SummaryWriter(log_dir=log_dir)
 
-        self.txt_f = open(txt_dir + "/" + txt_name, "w")
+        self.txt_f = open(txt_dir + "/" + txt_name, "a")
         self.task_id2name = {
             ids: name.replace("+", "plus") for ids, name in zip(task_ids, task_names)
         }
@@ -328,12 +328,12 @@ class tbLogger(object):
     def getValScore(self, task_id):
         return self.task_score_val[task_id] / float(self.task_datasize_val[task_id])
 
-    def showLossVal(self, task_id, task_stop_controller=None):
+    def showLossVal(self, task_id, task_stop_controller=None, split=""):
         progressInfo = "Eval task %s on iteration %d " % (
             task_id,
             self.task_step[task_id],
         )
-        lossInfo = "Validation "
+        lossInfo = split
         ave_loss = 0
         loss = self.task_loss_val[task_id] / float(self.task_datasize_val[task_id])
         score = self.task_score_val[task_id] / float(self.task_datasize_val[task_id])
@@ -364,7 +364,7 @@ class tbLogger(object):
         self.task_step_val[task_id] = 0
         logger.info(progressInfo)
         logger.info(lossInfo)
-        print(lossInfo, file=self.txt_f)
+        self.txt_f.write(lossInfo+"\n")
         return score
 
     def showLossTrain(self):

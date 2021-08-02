@@ -36,9 +36,25 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
             batch
         )
     else:
-        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
+        features,\
+        spatials,\
+        image_mask,\
+        question,\
+        target,\
+        input_mask,\
+        segment_ids,\
+        co_attention_mask,\
+        question_id,\
+        graph_adj1,\
+        graph_adj2 = (
             batch
         )
+
+    graph_data = {}
+    
+    if args.graph_mode is not None:
+        graph_data['adj1'] = graph_adj1
+        graph_data['adj2'] = graph_adj2
 
     batch_size = features.size(0)
     if task_cfg[task_id]["process"] in ["expand"]:
@@ -116,6 +132,8 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         image_mask,
         co_attention_mask,
         task_tokens,
+        graph_mode=args.graph_mode,
+        graph_data=graph_data
     )
 
     if task_cfg[task_id]["type"] == "VL-classifier":
@@ -184,6 +202,7 @@ def ForwardModelsTrain(
     task_count[task_id] += 1
     # get the batch
     batch = task_iter_train[task_id].next()
+
     batch = tuple(t.cuda(device=device, non_blocking=True) for t in batch)
 
     if task_id == "TASK4" or task_id == "TASK17":
@@ -191,9 +210,25 @@ def ForwardModelsTrain(
             batch
         )
     else:
-        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
+        features,\
+        spatials,\
+        image_mask,\
+        question,\
+        target,\
+        input_mask,\
+        segment_ids,\
+        co_attention_mask,\
+        question_id,\
+        graph_adj1,\
+        graph_adj2 = (
             batch
         )
+
+    graph_data = {}
+    
+    if args.graph_mode is not None:
+        graph_data['adj1'] = graph_adj1
+        graph_data['adj2'] = graph_adj2
 
     batch_size = features.size(0)
     if task_cfg[task_id]["process"] in ["dialog"]:
@@ -319,6 +354,8 @@ def ForwardModelsTrain(
         image_mask,
         co_attention_mask,
         task_tokens,
+        graph_mode=args.graph_mode,
+        graph_data=graph_data
     )
 
     # for different task, we use different output to calculate the loss.
@@ -461,6 +498,7 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
+                graph_mode=args.graph_mode
             )
 
         task_datasets_val[task] = None
@@ -482,6 +520,7 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
+                graph_mode=args.graph_mode
             )
 
         task_num_iters[task] = 0
@@ -593,6 +632,7 @@ def LoadDatasetEval(args, task_cfg, ids):
             padding_index=0,
             max_seq_length=task_cfg[task]["max_seq_length"],
             max_region_num=task_cfg[task]["max_region_num"],
+            graph_mode=args.graph_mode
         )
 
         task_dataloader_val[task] = DataLoader(
@@ -642,9 +682,26 @@ def EvaluatingModel(
             batch
         )
     else:
-        features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
+        features,\
+        spatials,\
+        image_mask,\
+        question,\
+        target,\
+        input_mask,\
+        segment_ids,\
+        co_attention_mask,\
+        question_id,\
+        graph_adj1,\
+        graph_adj2 = (
             batch
         )
+
+    graph_data = {}
+    
+    if args.graph_mode is not None:
+        graph_data['adj1'] = graph_adj1
+        graph_data['adj2'] = graph_adj2
+
     batch_size = features.size(0)
 
     if task_cfg[task_id]["process"] in ["dialog"]:
@@ -772,6 +829,8 @@ def EvaluatingModel(
             image_mask,
             co_attention_mask,
             task_tokens,
+            graph_mode=args.graph_mode,
+            graph_data=graph_data
         )
 
     if task_cfg[task_id]["type"] == "VL-classifier":

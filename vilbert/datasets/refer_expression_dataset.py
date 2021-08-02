@@ -75,6 +75,7 @@ class ReferExpressionDataset(Dataset):
         padding_index: int = 0,
         max_seq_length: int = 20,
         max_region_num: int = 60,
+        graph_mode = None,
     ):
         self.split = split
 
@@ -102,9 +103,25 @@ class ReferExpressionDataset(Dataset):
 
         self.max_region_num = max_region_num
 
+        self.graph_mode = graph_mode
+
         clean_train = "_cleaned" if clean_datasets else ""
 
-        if "roberta" in bert_model:
+        if self.graph_mode is not None:
+            cache_path = os.path.join(
+                dataroot,
+                "cache",
+                task
+                + "_"
+                + split
+                + "_"
+                + str(max_seq_length)
+                + "_"
+                + str(max_region_num)
+                + clean_train
+                + "_"+self.graph_mode+".pkl",
+            )
+        elif "roberta" in bert_model:
             cache_path = os.path.join(
                 dataroot,
                 "cache",
@@ -302,6 +319,23 @@ class ReferExpressionDataset(Dataset):
         input_mask = entry["input_mask"]
         segment_ids = entry["segment_ids"]
 
+        graph_data = {}
+        if self.graph_mode is not None:
+            graph_adj1 = entry['graph_adj1']
+            graph_adj2 = entry['graph_adj2']
+
+            # graph_child_adj1 = entry['graph_child_adj1']
+            # graph_child_adj2 = entry['graph_child_adj2']
+
+            # graph_child_symm_adj1 = entry['graph_child_symm_adj1'] 
+            # graph_child_symm_adj2 = entry['graph_child_symm_adj2'] 
+
+            # graph_ancestor_adj1 = entry['graph_ancestor_adj1'] 
+            # graph_ancestor_adj2 = entry['graph_ancestor_adj2']
+
+            # graph_ancestor_symm_adj1 = entry['graph_ancestor_symm_adj1'] 
+            # graph_ancestor_symm_adj2 = entry['graph_ancestor_symm_adj2']
+        
         return (
             features,
             spatials,
@@ -312,6 +346,16 @@ class ReferExpressionDataset(Dataset):
             segment_ids,
             co_attention_mask,
             image_id,
+            graph_adj1,
+            graph_adj2,
+            # graph_child_adj1,
+            # graph_child_adj2,
+            # graph_child_symm_adj1,
+            # graph_child_symm_adj2,
+            # graph_ancestor_adj1,
+            # graph_ancestor_adj2,
+            # graph_ancestor_symm_adj1,
+            # graph_ancestor_symm_adj2
         )
 
     def __len__(self):

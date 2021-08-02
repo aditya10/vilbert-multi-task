@@ -217,6 +217,10 @@ def main():
         action="store_true",
         help="whether to use task specific tokens for the multi-task learning.",
     )
+    parser.add_argument(
+        "--graph_mode", default=None, type=str, 
+        help="Use graph structures in training and eval, expects graph_data from datasets"
+    )
 
     args = parser.parse_args()
     with open("vilbert_tasks.yml", "r") as f:
@@ -664,7 +668,7 @@ def evaluate(
 
     # update the multi-task scheduler.
     task_stop_controller[task_id].step(tbLogger.getValScore(task_id))
-    score = tbLogger.showLossVal(task_id, task_stop_controller)
+    score = tbLogger.showLossVal(task_id, task_stop_controller=task_stop_controller)
     model.train()
 
 

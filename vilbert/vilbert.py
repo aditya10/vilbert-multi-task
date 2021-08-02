@@ -421,7 +421,13 @@ class BertSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, hidden_states, attention_mask):
+    def transform_adj(self, adj):
+        # we take 0,2,4 (i.e. semantic graph, child_symm, ancestor_symm) and repeat 4 times
+        assert self.num_attention_heads%3 == 0
+        adj_sub = adj[:,[0,2,4],:,:]
+        return adj_sub.repeat(1, int(self.num_attention_heads/3), 1, 1)
+
+    def forward(self, hidden_states, attention_mask, adj):
         mixed_query_layer = self.query(hidden_states)
         mixed_key_layer = self.key(hidden_states)
         mixed_value_layer = self.value(hidden_states)
@@ -433,6 +439,13 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+
+        # Mask attention scores based on adj matrix from semantic graph
+        if adj is not None:
+            t_adj = self.transform_adj(adj)
+            # print('t_adj: '+str(t_adj.shape))
+            attention_scores = attention_scores * t_adj
+
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
         attention_scores = attention_scores + attention_mask
 
@@ -480,8 +493,8 @@ class BertAttention(nn.Module):
         self.self = BertSelfAttention(config)
         self.output = BertSelfOutput(config)
 
-    def forward(self, input_tensor, attention_mask):
-        self_output, attention_probs = self.self(input_tensor, attention_mask)
+    def forward(self, input_tensor, attention_mask, adj):
+        self_output, attention_probs = self.self(input_tensor, attention_mask, adj)
         attention_output = self.output(self_output, input_tensor)
         return attention_output, attention_probs
 
@@ -524,9 +537,9 @@ class BertLayer(nn.Module):
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
-    def forward(self, hidden_states, attention_mask):
+    def forward(self, hidden_states, attention_mask, adj):
         attention_output, attention_probs = self.attention(
-            hidden_states, attention_mask
+            hidden_states, attention_mask, adj
         )
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output)
@@ -917,6 +930,7 @@ class BertEncoder(nn.Module):
         self.in_batch_pairs = config.in_batch_pairs
         self.fixed_t_layer = config.fixed_t_layer
         self.fixed_v_layer = config.fixed_v_layer
+        self.num_hidden_layers = config.num_hidden_layers
         layer = BertLayer(config)
         v_layer = BertImageLayer(config)
         connect_layer = BertConnectionLayer(config)
@@ -931,6 +945,17 @@ class BertEncoder(nn.Module):
             [copy.deepcopy(connect_layer) for _ in range(len(config.v_biattention_id))]
         )
 
+    def get_graph_data_for_idx(self, idx, graph_mode, graph_data):
+        
+        if graph_mode is None:
+            return None
+        elif idx <= math.floor(self.num_hidden_layers/3):
+            return graph_data['adj1']
+        elif idx <= math.floor(self.num_hidden_layers*2/3):
+            return graph_data['adj2']
+        else:
+            return None
+
     def forward(
         self,
         txt_embedding,
@@ -941,6 +966,8 @@ class BertEncoder(nn.Module):
         co_attention_mask=None,
         output_all_encoded_layers=True,
         output_all_attention_masks=False,
+        graph_mode=None,
+        graph_data=None
     ):
 
         v_start = 0
@@ -968,7 +995,7 @@ class BertEncoder(nn.Module):
             for idx in range(t_start, self.fixed_t_layer):
                 with torch.no_grad():
                     txt_embedding, txt_attention_probs = self.layer[idx](
-                        txt_embedding, txt_attention_mask
+                        txt_embedding, txt_attention_mask, self.get_graph_data_for_idx(idx, graph_mode, graph_data)
                     )
                     t_start = self.fixed_t_layer
                     if output_all_attention_masks:
@@ -976,7 +1003,7 @@ class BertEncoder(nn.Module):
 
             for idx in range(t_start, t_end):
                 txt_embedding, txt_attention_probs = self.layer[idx](
-                    txt_embedding, txt_attention_mask
+                    txt_embedding, txt_attention_mask, self.get_graph_data_for_idx(idx, graph_mode, graph_data)
                 )
                 if output_all_attention_masks:
                     all_attention_mask_t.append(txt_attention_probs)
@@ -1089,7 +1116,7 @@ class BertEncoder(nn.Module):
 
         for idx in range(t_start, len(self.layer)):
             txt_embedding, txt_attention_probs = self.layer[idx](
-                txt_embedding, txt_attention_mask
+                txt_embedding, txt_attention_mask, self.get_graph_data_for_idx(idx, graph_mode, graph_data)
             )
 
             if output_all_attention_masks:
@@ -1318,6 +1345,8 @@ class BertModel(BertPreTrainedModel):
         task_ids=None,
         output_all_encoded_layers=False,
         output_all_attention_masks=False,
+        graph_mode=None,
+        graph_data=None
     ):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_txt)
@@ -1376,6 +1405,11 @@ class BertModel(BertPreTrainedModel):
 
         embedding_output = self.embeddings(input_txt, token_type_ids, task_ids)
         v_embedding_output = self.v_embeddings(input_imgs, image_loc)
+
+        if graph_mode is not None:
+            graph_data['adj1'] = nn.functional.pad(input=graph_data['adj1'], pad=(0, 1, 0, 1), mode='constant', value=1)
+            graph_data['adj2'] = nn.functional.pad(input=graph_data['adj2'], pad=(0, 1, 0, 1), mode='constant', value=1)
+            
         encoded_layers_t, encoded_layers_v, all_attention_mask = self.encoder(
             embedding_output,
             v_embedding_output,
@@ -1385,6 +1419,8 @@ class BertModel(BertPreTrainedModel):
             extended_co_attention_mask,
             output_all_encoded_layers=output_all_encoded_layers,
             output_all_attention_masks=output_all_attention_masks,
+            graph_mode=graph_mode,
+            graph_data=graph_data
         )
 
         sequence_output_t = encoded_layers_t[-1]
@@ -1647,6 +1683,8 @@ class VILBertForVLTasks(BertPreTrainedModel):
         task_ids=None,
         output_all_encoded_layers=False,
         output_all_attention_masks=False,
+        graph_mode=None,
+        graph_data=None
     ):
 
         sequence_output_t, sequence_output_v, pooled_output_t, pooled_output_v, all_attention_mask = self.bert(
@@ -1660,6 +1698,8 @@ class VILBertForVLTasks(BertPreTrainedModel):
             task_ids,
             output_all_encoded_layers=output_all_encoded_layers,
             output_all_attention_masks=output_all_attention_masks,
+            graph_mode=graph_mode,
+            graph_data=graph_data
         )
 
         vil_prediction = 0
@@ -1720,19 +1760,3 @@ class SimpleClassifier(nn.Module):
 
     def forward(self, hidden_states):
         return self.logit_fc(hidden_states)
-
-
-# class SimpleClassifier(nn.Module):
-#     def __init__(self, in_dim, hid_dim, out_dim, dropout):
-#         super(SimpleClassifier, self).__init__()
-#         layers = [
-#             weight_norm(nn.Linear(in_dim, hid_dim), dim=None),
-#             nn.ReLU(),
-#             nn.Dropout(dropout, inplace=True),
-#             weight_norm(nn.Linear(hid_dim, out_dim), dim=None)
-#         ]
-#         self.main = nn.Sequential(*layers)
-
-#     def forward(self, x):
-#         logits = self.main(x)
-#         return logits

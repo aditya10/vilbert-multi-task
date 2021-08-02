@@ -158,6 +158,10 @@ def main():
         action="store_true",
         help="whether to use task specific tokens for the multi-task learning.",
     )
+    parser.add_argument(
+        "--graph_mode", default="", type=str, 
+        help="Use graph structures in training and eval, expects supp_info from datasets"
+    )
 
     args = parser.parse_args()
     with open("vilbert_tasks.yml", "r") as f:
@@ -180,13 +184,13 @@ def main():
         name = task_cfg[task]["name"]
         task_names.append(name)
 
-    if args.task_specific_tokens:
-        config.task_specific_tokens = True
-
     # timeStamp = '-'.join(task_names) + '_' + args.config_file.split('/')[1].split('.')[0]
     timeStamp = args.from_pretrained.split("/")[-1] + "-" + args.save_name
     savePath = os.path.join(args.output_dir, timeStamp)
     config = BertConfig.from_json_file(args.config_file)
+
+    if args.task_specific_tokens:
+        config.task_specific_tokens = True
 
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device(
@@ -305,7 +309,7 @@ def main():
             sys.stdout.write("%d/%d\r" % (i, len(task_dataloader_val[task_id])))
             sys.stdout.flush()
         # save the result or evaluate the result.
-        ave_score = tbLogger.showLossVal(task_id)
+        ave_score = tbLogger.showLossVal(task_id, split=args.split)
 
         if args.split:
             json_path = os.path.join(savePath, args.split)
