@@ -1,3 +1,6 @@
 [submodule "tools/refer"]
 	path = tools/refer
 	url = https://github.com/lichengunc/refer.git
+[submodule "tools/PhraseCutDataset"]
+	path = tools/PhraseCutDataset
+	url = https://github.com/ChenyunWu/PhraseCutDataset.git

@@ -443,7 +443,7 @@ class BertSelfAttention(nn.Module):
         # Mask attention scores based on adj matrix from semantic graph
         if adj is not None:
             t_adj = self.transform_adj(adj)
-            # print('t_adj: '+str(t_adj.shape))
+            #print('t_adj text: '+str(t_adj.shape))
             attention_scores = attention_scores * t_adj
 
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
@@ -581,7 +581,10 @@ class BertImageSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, hidden_states, attention_mask, txt_embedding, txt_attention_mask):
+    def transform_adj(self, adj):
+        return torch.unsqueeze(adj,dim=1).repeat(1, self.num_attention_heads, 1, 1).float()
+
+    def forward(self, hidden_states, attention_mask, txt_embedding, txt_attention_mask, adj):
 
         mixed_query_layer = self.query(hidden_states)
         mixed_key_layer = self.key(hidden_states)
@@ -605,6 +608,13 @@ class BertImageSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+
+        # Mask attention scores based on adj matrix from semantic graph
+        if adj is not None:
+            t_adj = self.transform_adj(adj)
+            #print('t_adj: ', t_adj.shape)
+            attention_scores = attention_scores * t_adj
+
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
         attention_scores = attention_scores + attention_mask
 
@@ -652,9 +662,9 @@ class BertImageAttention(nn.Module):
         self.self = BertImageSelfAttention(config)
         self.output = BertImageSelfOutput(config)
 
-    def forward(self, input_tensor, attention_mask, txt_embedding, txt_attention_mask):
+    def forward(self, input_tensor, attention_mask, txt_embedding, txt_attention_mask, adj):
         self_output, attention_probs = self.self(
-            input_tensor, attention_mask, txt_embedding, txt_attention_mask
+            input_tensor, attention_mask, txt_embedding, txt_attention_mask, adj
         )
         attention_output = self.output(self_output, input_tensor)
         return attention_output, attention_probs
@@ -698,9 +708,9 @@ class BertImageLayer(nn.Module):
         self.intermediate = BertImageIntermediate(config)
         self.output = BertImageOutput(config)
 
-    def forward(self, hidden_states, attention_mask, txt_embedding, txt_attention_mask):
+    def forward(self, hidden_states, attention_mask, txt_embedding, txt_attention_mask, adj):
         attention_output, attention_probs = self.attention(
-            hidden_states, attention_mask, txt_embedding, txt_attention_mask
+            hidden_states, attention_mask, txt_embedding, txt_attention_mask, adj
         )
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output)
@@ -931,6 +941,7 @@ class BertEncoder(nn.Module):
         self.fixed_t_layer = config.fixed_t_layer
         self.fixed_v_layer = config.fixed_v_layer
         self.num_hidden_layers = config.num_hidden_layers
+        self.v_num_hidden_layers = config.v_num_hidden_layers
         layer = BertLayer(config)
         v_layer = BertImageLayer(config)
         connect_layer = BertConnectionLayer(config)
@@ -955,6 +966,17 @@ class BertEncoder(nn.Module):
             return graph_data['adj2']
         else:
             return None
+    
+    def get_v_graph_data_for_idx(self, idx, v_graph_mode, graph_data):
+        
+        if v_graph_mode is None:
+            return None
+        elif idx <= math.floor(self.v_num_hidden_layers/3):
+            return graph_data['v_adj1']
+        elif idx <= math.floor(self.v_num_hidden_layers*2/3):
+            return graph_data['v_adj2']
+        else:
+            return None
 
     def forward(
         self,
@@ -967,6 +989,7 @@ class BertEncoder(nn.Module):
         output_all_encoded_layers=True,
         output_all_attention_masks=False,
         graph_mode=None,
+        v_graph_mode=None,
         graph_data=None
     ):
 
@@ -1015,6 +1038,7 @@ class BertEncoder(nn.Module):
                         image_attention_mask,
                         txt_embedding,
                         txt_attention_mask2,
+                        self.get_v_graph_data_for_idx(idx, v_graph_mode, graph_data)
                     )
                     v_start = self.fixed_v_layer
 
@@ -1027,6 +1051,7 @@ class BertEncoder(nn.Module):
                     image_attention_mask,
                     txt_embedding,
                     txt_attention_mask2,
+                    self.get_v_graph_data_for_idx(idx, v_graph_mode, graph_data)
                 )
 
                 if output_all_attention_masks:
@@ -1109,6 +1134,7 @@ class BertEncoder(nn.Module):
                 image_attention_mask,
                 txt_embedding,
                 txt_attention_mask2,
+                self.get_v_graph_data_for_idx(idx, v_graph_mode, graph_data)
             )
 
             if output_all_attention_masks:
@@ -1346,6 +1372,7 @@ class BertModel(BertPreTrainedModel):
         output_all_encoded_layers=False,
         output_all_attention_masks=False,
         graph_mode=None,
+        v_graph_mode=None,
         graph_data=None
     ):
         if attention_mask is None:
@@ -1420,6 +1447,7 @@ class BertModel(BertPreTrainedModel):
             output_all_encoded_layers=output_all_encoded_layers,
             output_all_attention_masks=output_all_attention_masks,
             graph_mode=graph_mode,
+            v_graph_mode=v_graph_mode,
             graph_data=graph_data
         )
 
@@ -1684,6 +1712,7 @@ class VILBertForVLTasks(BertPreTrainedModel):
         output_all_encoded_layers=False,
         output_all_attention_masks=False,
         graph_mode=None,
+        v_graph_mode=None,
         graph_data=None
     ):
 
@@ -1699,6 +1728,7 @@ class VILBertForVLTasks(BertPreTrainedModel):
             output_all_encoded_layers=output_all_encoded_layers,
             output_all_attention_masks=output_all_attention_masks,
             graph_mode=graph_mode,
+            v_graph_mode=v_graph_mode,
             graph_data=graph_data
         )
 

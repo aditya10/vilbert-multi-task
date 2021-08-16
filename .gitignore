@@ -24,6 +24,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+wandb/
 
 # Code Editors
 .vscode
@@ -39,6 +40,7 @@ save/
 logs/
 results/
 outs/
+adj_output*
 
 # Checkpoints directory
 checkpoints/
@@ -57,3 +59,4 @@ ENV/
 # Run files
 run*.sh
 env.yml
+setup_wandb.py

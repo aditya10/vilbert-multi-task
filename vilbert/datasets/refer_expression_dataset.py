@@ -76,6 +76,7 @@ class ReferExpressionDataset(Dataset):
         max_seq_length: int = 20,
         max_region_num: int = 60,
         graph_mode = None,
+        v_graph_mode = None
     ):
         self.split = split
 
@@ -104,6 +105,7 @@ class ReferExpressionDataset(Dataset):
         self.max_region_num = max_region_num
 
         self.graph_mode = graph_mode
+        self.v_graph_mode = v_graph_mode
 
         clean_train = "_cleaned" if clean_datasets else ""
 
@@ -319,23 +321,27 @@ class ReferExpressionDataset(Dataset):
         input_mask = entry["input_mask"]
         segment_ids = entry["segment_ids"]
 
-        graph_data = {}
+        graph_adj1 = 0
+        graph_adj2 = 0
         if self.graph_mode is not None:
             graph_adj1 = entry['graph_adj1']
             graph_adj2 = entry['graph_adj2']
-
-            # graph_child_adj1 = entry['graph_child_adj1']
-            # graph_child_adj2 = entry['graph_child_adj2']
-
-            # graph_child_symm_adj1 = entry['graph_child_symm_adj1'] 
-            # graph_child_symm_adj2 = entry['graph_child_symm_adj2'] 
-
-            # graph_ancestor_adj1 = entry['graph_ancestor_adj1'] 
-            # graph_ancestor_adj2 = entry['graph_ancestor_adj2']
-
-            # graph_ancestor_symm_adj1 = entry['graph_ancestor_symm_adj1'] 
-            # graph_ancestor_symm_adj2 = entry['graph_ancestor_symm_adj2']
         
+        v_graph_adj1 = 0
+        v_graph_adj2 = 0
+        if self.v_graph_mode is not None:
+            v_graph_adj1 = np.zeros((self.max_region_num, self.max_region_num))
+            v_graph_adj2 = np.zeros((self.max_region_num, self.max_region_num))
+            iou_mask = iou(torch.tensor(mix_boxes[:mix_num_boxes, :4]).float(), torch.tensor(mix_boxes[:mix_num_boxes, :4]).float())
+            vadj1 = iou_mask.clone().detach()
+            vadj2 = iou_mask.clone().detach()
+            vadj1[vadj1 > 0.3] = 1
+            vadj1[vadj1 <= 0.3] = 0
+            vadj2[vadj2 > 0] = 1
+            vadj2[vadj2 <= 0] = 0
+            v_graph_adj1[:mix_num_boxes, :mix_num_boxes] = vadj1.float()
+            v_graph_adj2[:mix_num_boxes, :mix_num_boxes] = vadj2.float()
+
         return (
             features,
             spatials,
@@ -348,14 +354,8 @@ class ReferExpressionDataset(Dataset):
             image_id,
             graph_adj1,
             graph_adj2,
-            # graph_child_adj1,
-            # graph_child_adj2,
-            # graph_child_symm_adj1,
-            # graph_child_symm_adj2,
-            # graph_ancestor_adj1,
-            # graph_ancestor_adj2,
-            # graph_ancestor_symm_adj1,
-            # graph_ancestor_symm_adj2
+            v_graph_adj1,
+            v_graph_adj2
         )
 
     def __len__(self):

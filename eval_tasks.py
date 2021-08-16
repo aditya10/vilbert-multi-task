@@ -159,8 +159,12 @@ def main():
         help="whether to use task specific tokens for the multi-task learning.",
     )
     parser.add_argument(
-        "--graph_mode", default="", type=str, 
+        "--graph_mode", default=None, type=str, 
         help="Use graph structures in training and eval, expects supp_info from datasets"
+    )
+    parser.add_argument(
+        "--v_graph_mode", default=None, type=str, 
+        help="Use graph structures in training and eval, expects graph_data from datasets"
     )
 
     args = parser.parse_args()

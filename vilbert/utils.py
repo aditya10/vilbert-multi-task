@@ -28,6 +28,7 @@ import torch
 from torch._six import inf
 
 import pdb
+import wandb
 
 PYTORCH_PRETRAINED_BERT_CACHE = Path(
     os.getenv("PYTORCH_PRETRAINED_BERT_CACHE", Path.home() / ".pytorch_pretrained_bert")
@@ -343,6 +344,8 @@ class tbLogger(object):
             loss,
             score * 100.0,
         )
+        if wandb.run is not None:
+            wandb.log({"val_loss": loss, "val_score": score*100.0})
 
         self.linePlot(
             self.task_step[task_id], loss, "val", self.task_id2name[task_id] + "_loss"
@@ -388,7 +391,10 @@ class tbLogger(object):
                             / float(self.task_step_tmp[task_id]),
                         )
                     )
-
+        wandb_detail = {"loss": self.task_loss_tmp[task_id]/float(self.task_step_tmp[task_id]), 
+        "score": self.task_score_tmp[task_id]/float(self.task_step_tmp[task_id]),
+        "lr": self.task_norm_tmp[task_id]/float(self.task_step_tmp[task_id])}
+        wandb.log(wandb_detail)
         logger.info(lossInfo)
         print(lossInfo, file=self.txt_f)
 

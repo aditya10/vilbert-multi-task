@@ -3,8 +3,8 @@ import _pickle as cPickle
 import torch
 
 datapath = "../datasets/refcoco/cache/"
-dataset = 'refcocog'
-split = 'train'
+dataset = 'refcoco+'
+split = 'testB'
 setinfo = '_20_101_cleaned'
 
 entries = cPickle.load(open(datapath+dataset+'_'+split+setinfo+'.pkl', "rb"))

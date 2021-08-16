@@ -46,7 +46,9 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         co_attention_mask,\
         question_id,\
         graph_adj1,\
-        graph_adj2 = (
+        graph_adj2,\
+        v_graph_adj1,\
+        v_graph_adj2 = (
             batch
         )
 
@@ -55,6 +57,10 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
     if args.graph_mode is not None:
         graph_data['adj1'] = graph_adj1
         graph_data['adj2'] = graph_adj2
+    
+    if args.v_graph_mode is not None:
+        graph_data['v_adj1'] = v_graph_adj1
+        graph_data['v_adj2'] = v_graph_adj2
 
     batch_size = features.size(0)
     if task_cfg[task_id]["process"] in ["expand"]:
@@ -133,6 +139,7 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         co_attention_mask,
         task_tokens,
         graph_mode=args.graph_mode,
+        v_graph_mode=args.v_graph_mode,
         graph_data=graph_data
     )
 
@@ -220,7 +227,9 @@ def ForwardModelsTrain(
         co_attention_mask,\
         question_id,\
         graph_adj1,\
-        graph_adj2 = (
+        graph_adj2,\
+        v_graph_adj1,\
+        v_graph_adj2 = (
             batch
         )
 
@@ -229,6 +238,10 @@ def ForwardModelsTrain(
     if args.graph_mode is not None:
         graph_data['adj1'] = graph_adj1
         graph_data['adj2'] = graph_adj2
+    
+    if args.v_graph_mode is not None:
+        graph_data['v_adj1'] = v_graph_adj1
+        graph_data['v_adj2'] = v_graph_adj2
 
     batch_size = features.size(0)
     if task_cfg[task_id]["process"] in ["dialog"]:
@@ -355,6 +368,7 @@ def ForwardModelsTrain(
         co_attention_mask,
         task_tokens,
         graph_mode=args.graph_mode,
+        v_graph_mode=args.v_graph_mode,
         graph_data=graph_data
     )
 
@@ -498,7 +512,8 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
-                graph_mode=args.graph_mode
+                graph_mode=args.graph_mode,
+                v_graph_mode=args.v_graph_mode
             )
 
         task_datasets_val[task] = None
@@ -520,7 +535,8 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 padding_index=0,
                 max_seq_length=task_cfg[task]["max_seq_length"],
                 max_region_num=task_cfg[task]["max_region_num"],
-                graph_mode=args.graph_mode
+                graph_mode=args.graph_mode,
+                v_graph_mode=args.v_graph_mode
             )
 
         task_num_iters[task] = 0
@@ -632,7 +648,8 @@ def LoadDatasetEval(args, task_cfg, ids):
             padding_index=0,
             max_seq_length=task_cfg[task]["max_seq_length"],
             max_region_num=task_cfg[task]["max_region_num"],
-            graph_mode=args.graph_mode
+            graph_mode=args.graph_mode,
+            v_graph_mode=args.v_graph_mode
         )
 
         task_dataloader_val[task] = DataLoader(
@@ -692,7 +709,9 @@ def EvaluatingModel(
         co_attention_mask,\
         question_id,\
         graph_adj1,\
-        graph_adj2 = (
+        graph_adj2,\
+        v_graph_adj1,\
+        v_graph_adj2 = (
             batch
         )
 
@@ -701,6 +720,10 @@ def EvaluatingModel(
     if args.graph_mode is not None:
         graph_data['adj1'] = graph_adj1
         graph_data['adj2'] = graph_adj2
+
+    if args.v_graph_mode is not None:
+        graph_data['v_adj1'] = v_graph_adj1
+        graph_data['v_adj2'] = v_graph_adj2
 
     batch_size = features.size(0)
 
@@ -830,6 +853,7 @@ def EvaluatingModel(
             co_attention_mask,
             task_tokens,
             graph_mode=args.graph_mode,
+            v_graph_mode=args.v_graph_mode,
             graph_data=graph_data
         )
 

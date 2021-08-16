@@ -46,6 +46,8 @@ from torch.optim.lr_scheduler import (
 import vilbert.utils as utils
 import torch.distributed as dist
 
+import wandb
+
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",
@@ -221,6 +223,14 @@ def main():
         "--graph_mode", default=None, type=str, 
         help="Use graph structures in training and eval, expects graph_data from datasets"
     )
+    parser.add_argument(
+        "--v_graph_mode", default=None, type=str, 
+        help="Use graph structures in training and eval, expects graph_data from datasets"
+    )
+    parser.add_argument(
+        "--wandbkey", default=None, type=str, 
+        help="Use graph structures in training and eval, expects graph_data from datasets"
+    )
 
     args = parser.parse_args()
     with open("vilbert_tasks.yml", "r") as f:
@@ -306,6 +316,24 @@ def main():
             print(args, file=f)  # Python 3.x
             print("\n", file=f)
             print(config, file=f)
+
+    # setup wandb
+    if args.wandbkey is not None:
+        key = os.environ.get('WANDB_API_KEY')
+
+        if key is None:
+            print("Setting WANDB API key.")
+            os.environ["WANDB_API_KEY"] = args.wandbkey
+        else:
+            print("WANDB API key is already present. Validating.")
+            if key == args.wandbkey:
+                print("Valid API key present.")
+            else:
+                del os.environ['WANDB_API_KEY']
+                os.environ["WANDB_API_KEY"] = args.wandbkey
+                print("Reset API key.")
+
+    wandb.init(config=args)
 
     task_batch_size, task_num_iters, task_ids, task_datasets_train, task_datasets_val, task_dataloader_train, task_dataloader_val = LoadDatasets(
         args, task_cfg, args.tasks.split("-")
@@ -511,6 +539,9 @@ def main():
 
     task_iter_train = {name: None for name in task_ids}
     task_count = {name: 0 for name in task_ids}
+
+    wandb.watch(model, log_freq=100)
+
     for epochId in tqdm(range(start_epoch, args.num_train_epochs), desc="Epoch"):
         model.train()
         torch.autograd.set_detect_anomaly(True)

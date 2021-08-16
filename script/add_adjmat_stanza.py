@@ -1,5 +1,5 @@
 # This file can only be run in the allennlp environment.
-# run: conda activate allennlp
+# run: conda activate stanza
 
 import numpy as np
 import stanza
@@ -153,6 +153,9 @@ if __name__ == "__main__":
   parser.add_argument(
       "--symm", action="store_true", help="Produce symmetric matrix"
   )
+  parser.add_argument(
+      "--dataset", default='refcocog', type=str, help="Dataset name"
+  )
   args = parser.parse_args()
   f = args.f
   t = args.type
@@ -164,9 +167,9 @@ if __name__ == "__main__":
   if f is not None:
     paths.append(f)
   else:
-    for fname in os.listdir("/ubc/cs/research/shield/projects/aditya10/vilbert-multi-task/datasets/refcoco/cache"):
-      if fname.endswith("cleaned.pkl") and fname.startswith("refcocog"):
-        paths.append(os.path.join("/ubc/cs/research/shield/projects/aditya10/vilbert-multi-task/datasets/refcoco/cache", fname))
+    for fname in os.listdir("../datasets/refcoco/cache"):
+      if fname.endswith("cleaned.pkl") and fname.startswith(args.dataset):
+        paths.append(os.path.join("../datasets/refcoco/cache", fname))
 
   if t is not None:
     types.append(t)
